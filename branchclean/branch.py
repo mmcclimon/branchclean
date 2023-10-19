@@ -1,24 +1,21 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
+from branchclean import util
 from branchclean.util import run_git
 
 
-@dataclass(init=False)
+@dataclass
 class Branch:
-    sha: bytes
+    sha: util.Sha
     name: bytes
     upstream: Optional[bytes]
-    merge_base: Optional[bytes]
-    birth: bytes  # unix timestamp
+    merge_base: util.Sha = field(init=False)
+    birth: bytes = field(init=False)  # unix timestamp
 
-    def __init__(self, sha, name, upstream):
-        self.sha = sha
-        self.name = name
-        self.upstream = upstream
-
+    def __post_init__(self):
         # XXX get rid of hardcoded 'main' here
-        self.merge_base = run_git(["merge-base", self.sha, "main"])
+        self.merge_base = util.Sha(run_git(["merge-base", self.sha, "main"]))
         self.birth = run_git(
             ["show", "-s", "--format=%ct", self.merge_base],
         )

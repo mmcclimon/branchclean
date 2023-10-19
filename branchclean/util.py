@@ -1,4 +1,7 @@
 import subprocess
+import typing
+
+Sha = typing.NewType("Sha", bytes)
 
 
 def run_git(args, stdin=None) -> bytes:

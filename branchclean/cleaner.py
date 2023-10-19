@@ -1,3 +1,4 @@
+from branchclean import util
 from branchclean.branch import Branch
 from branchclean.util import run_git
 
@@ -33,7 +34,7 @@ class Cleaner:
             if kind != b"commit":
                 continue
 
-            branch = Branch(sha=sha, name=name, upstream=upstream)
+            branch = Branch(sha=util.Sha(sha), name=name, upstream=upstream)
             self.branches.append(branch)
 
     def compute_main_patch_ids(self):

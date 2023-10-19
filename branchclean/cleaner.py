@@ -25,11 +25,9 @@ class Cleaner:
 
     def read_refs(self):
         branches = run_git(
-            [
-                "for-each-ref",
-                "--format=%(objectname) %(objecttype) %(refname) %(upstream)",
-                "refs/heads",
-            ],
+            "for-each-ref",
+            "--format=%(objectname) %(objecttype) %(refname) %(upstream)",
+            "refs/heads",
         )
 
         for line in branches.splitlines():
@@ -45,9 +43,9 @@ class Cleaner:
         # find the oldest sha for branches, compute patch ids for everything since
         oldest = min(map(lambda b: b.birth, self.branches))
 
-        for commit in run_git(["log", "--format=%H", "--since", oldest]).splitlines():
-            patch = run_git(["diff-tree", "--patch-with-raw", commit])
-            line = run_git(["patch-id"], stdin=patch)
+        for commit in run_git("log", "--format=%H", "--since", oldest).splitlines():
+            patch = run_git("diff-tree", "--patch-with-raw", commit)
+            line = run_git("patch-id", stdin=patch)
             if len(line) == 0:
                 continue
 

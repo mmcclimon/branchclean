@@ -1,4 +1,4 @@
-from branchclean.app import App
+from branchclean.cleaner import Cleaner
 
 
 def run():
@@ -7,5 +7,4 @@ def run():
     and constructs the thing to actually run the branch cleaner.
     """
     # most of this is still todo
-    app = App()
-    app.run()
+    Cleaner().run()

@@ -2,7 +2,7 @@ from branchclean.branch import Branch
 from branchclean.util import run_git
 
 
-class App:
+class Cleaner:
     def __init__(self):
         self.branches = []
         self.patch_ids = {}

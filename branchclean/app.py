@@ -47,7 +47,7 @@ class App:
 
         for commit in run_git(["log", "--format=%H", "--since", oldest], split=True):
             patch = run_git(["diff-tree", "--patch-with-raw", commit])
-            line = run_git(["patch-id"], stdin=patch, chomp=True)
+            line = run_git(["patch-id"], stdin=patch)
             if len(line) == 0:
                 continue
 

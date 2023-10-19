@@ -26,8 +26,7 @@ class Cleaner:
                 "--format=%(objectname) %(objecttype) %(refname) %(upstream)",
                 "refs/heads",
             ],
-            split=True,
-        )
+        ).splitlines()
 
         for line in branches:
             sha, kind, name, upstream = line.split(sep=b" ")
@@ -43,7 +42,7 @@ class Cleaner:
         # find the oldest sha for branches, compute patch ids for everything since
         oldest = min(map(lambda b: b.birth, self.branches))
 
-        for commit in run_git(["log", "--format=%H", "--since", oldest], split=True):
+        for commit in run_git(["log", "--format=%H", "--since", oldest]).splitlines():
             patch = run_git(["diff-tree", "--patch-with-raw", commit])
             line = run_git(["patch-id"], stdin=patch)
             if len(line) == 0:

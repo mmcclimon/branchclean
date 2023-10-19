@@ -19,3 +19,11 @@ main branch. The basic mode of operation is:
 
 There's a lot of room for optimization here, but it now kinda sorta works, at
 least enough to tell you what _can_ be deleted.
+
+## using it
+
+Ugh, Python is such a mess. Right now I'm "using"
+[flit](https://flit.pypa.io/en/stable/index.html) for packaging, which really
+just means that I used `flit init` to generate most of pyproject.toml. To
+install, `flit install -s` will get you a symlinked version somewhere
+sensible, which will Just Work for probably what you actually want.

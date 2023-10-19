@@ -26,15 +26,13 @@ class App:
                 "--format=%(objectname) %(objecttype) %(refname) %(upstream)",
                 "refs/heads",
             ],
-            split=True
+            split=True,
         )
 
         for line in branches:
-            sha, kind, name, *rest = line.split()
+            sha, kind, name, upstream = line.split(sep=b" ")
             if kind != b"commit":
                 continue
-
-            upstream = rest[0] if len(rest) == 1 else None
 
             branch = Branch(sha=sha, name=name, upstream=upstream)
             self.branches.append(branch)

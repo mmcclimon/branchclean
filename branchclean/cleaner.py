@@ -11,9 +11,11 @@ class Cleaner:
         self.upstream_remote = "gitbox"
         self.personal_remote = "michael"
         self.eternal_branches = {"main", "master"}
+        self.ignore_prefixes = ["boneyard/"]
 
         self.branches = []
         self.remote_shas = []
+        self.other_upstreams = {}
         self.patch_ids = {}
 
     def run(self):
@@ -48,6 +50,8 @@ class Cleaner:
             f"refs/remotes/{self.personal_remote}",
         )
 
+        personal_re = re.escape(self.personal_remote)
+
         for line in branches.splitlines():
             sha, kind, refname, upstream = line.split(sep=" ")
             if kind != "commit":
@@ -55,18 +59,28 @@ class Cleaner:
 
             if m := re.match(r"refs/heads/(.*)", refname):
                 name = m.group(1)
-                if name in self.eternal_branches:
+                if self._should_ignore_branch(name):
                     continue
+
+                if upstream and not re.match(f"refs/remotes/{personal_re}/", upstream):
+                    self.other_upstreams[name] = upstream.removeprefix("refs/remotes/")
 
                 branch = Branch(sha=util.Sha(sha), name=name)
                 self.branches.append(branch)
 
-            remote = re.compile(
-                r"refs/remotes/" + re.escape(self.personal_remote) + r"/(.*)"
-            )
-            if m := remote.match(refname):
+            if m := re.match(rf"refs/remotes/{personal_re}/(.*)", refname):
                 branch = Branch(sha=util.Sha(sha), name=m.group(1))
                 self.remote_shas.append(branch)
+
+    def _should_ignore_branch(self, name: str) -> bool:
+        if name in self.eternal_branches:
+            return True
+
+        for prefix in self.ignore_prefixes:
+            if name.startswith(prefix):
+                return True
+
+        return False
 
     def compute_main_patch_ids(self):
         # find the oldest sha for branches, compute patch ids for everything since
@@ -97,7 +111,9 @@ class Cleaner:
             remotes = list(filter(lambda r: r.name == branch.name, self.remote_shas))
             remote = remotes[0] if len(remotes) else None
 
-            if remote is None:
+            if tracking := self.other_upstreams.get(branch.name):
+                self._process_external(branch, tracking)
+            elif remote is None:
                 self._process_missing(branch)
             elif remote.sha == branch.sha:
                 self._process_matched(branch)
@@ -105,6 +121,24 @@ class Cleaner:
                 self._process_mismatched(branch, remote)
             else:
                 assert False, "unreachable"
+
+    def _process_external(self, branch: Branch, tracking: str):
+        remote, _ = tracking.split("/", maxsplit=2)
+        util.fetch(remote)
+
+        if not util.ref_exists("refs/remotes/" + tracking):
+            log.update(f"{branch.name}; {tracking} is gone, will delete local")
+            return
+
+        upstream_sha = run_git(
+            "show", "--no-patch", "--format=%H", "refs/remotes/" + tracking
+        )
+
+        if upstream_sha == branch.sha:
+            log.ok(f"{branch.name} matches {tracking}")
+            return
+
+        log.update(f"{branch.name}; {tracking} has changed, will update local")
 
     def _process_missing(self, branch):
         log.warn(f"{branch.name} is missing on remote and is not merged")

@@ -1,3 +1,4 @@
+from datetime import datetime
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -11,12 +12,13 @@ class Branch:
     name: bytes
     upstream: Optional[bytes]
     merge_base: util.Sha = field(init=False)
-    birth: bytes = field(init=False)  # unix timestamp
+    birth: datetime = field(init=False)  # unix timestamp
 
     def __post_init__(self):
         # XXX get rid of hardcoded 'main' here
         self.merge_base = util.Sha(run_git("merge-base", self.sha, "main"))
-        self.birth = run_git("show", "-s", "--format=%ct", self.merge_base)
+        birth = run_git("show", "-s", "--format=%ct", self.merge_base)
+        self.birth = datetime.fromtimestamp(int(birth))
 
     def compute_patch_id(self):
         patch = run_git("diff-tree", "--patch-with-raw", self.merge_base, self.sha)

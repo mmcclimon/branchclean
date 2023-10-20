@@ -56,11 +56,14 @@ class Cleaner:
             self.branches.append(branch)
 
     def compute_main_patch_ids(self):
-        log.note("computing patch ids...")
         # find the oldest sha for branches, compute patch ids for everything since
         oldest = min(map(lambda b: b.birth, self.branches))
 
-        for commit in run_git("log", "--format=%H", "--since", oldest).splitlines():
+        ymd = oldest.date().isoformat()
+        since = oldest.isoformat()
+        log.note(f"computing patch ids since {ymd}...")
+
+        for commit in run_git("log", "--format=%H", "--since", since).splitlines():
             patch = run_git("diff-tree", "--patch-with-raw", commit)
             line = run_git("patch-id", stdin=patch)
             if len(line) == 0:

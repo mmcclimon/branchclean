@@ -1,5 +1,7 @@
 import subprocess
 
+from branchclean import log
+
 
 def run_git(*args, stdin=None) -> bytes:
     """
@@ -11,6 +13,11 @@ def run_git(*args, stdin=None) -> bytes:
     cmd = ["git"] + list(args)
     res = subprocess.run(cmd, check=True, capture_output=True, input=stdin)
     return res.stdout.removesuffix(b"\n")
+
+
+def fetch(remote_name: str):
+    log.note(f"fetching {remote_name}")
+    run_git("fetch", remote_name)
 
 
 class Sha(bytes):

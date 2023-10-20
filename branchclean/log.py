@@ -1,4 +1,5 @@
 import enum
+import sys
 
 
 class Color(enum.StrEnum):
@@ -26,3 +27,8 @@ merged = _gen("merged", Color.GREEN)
 update = _gen("update", Color.CYAN)
 warn = _gen("warn", Color.YELLOW)
 ok = _gen("ok", Color.GREEN)
+
+
+def fatal(msg: str):
+    print("fatal: " + msg)
+    sys.exit(1)

@@ -5,6 +5,10 @@ from branchclean.util import run_git
 
 class Cleaner:
     def __init__(self):
+        # TODO: config
+        self.upstream_remote = "gitbox"
+        self.personal_remote = "michael"
+
         self.branches = []
         self.patch_ids = {}
 
@@ -18,10 +22,19 @@ class Cleaner:
         self.make_changes()
 
     def assert_local_ok(self):
-        pass
+        for line in run_git('status', '--branch', '--porcelain=v2').splitlines():
+            if not line.startswith(b'# branch.head'):
+                continue
+
+            branch = line.split(b" ")[2]
+            if branch != b"main":
+                log.fatal(f"cannot proceed from branch {branch.decode()}")
+
+            return
 
     def do_initial_fetch(self):
-        pass
+        util.fetch(self.upstream_remote)
+        util.fetch(self.personal_remote)
 
     def read_refs(self):
         branches = run_git(

@@ -1,4 +1,4 @@
-import re
+from typing import Iterator
 
 from branchclean import log, util
 from branchclean.branch import Branch, TrackingBranch
@@ -47,39 +47,37 @@ class Cleaner:
         util.fetch(self.personal_remote)
 
     def read_refs(self):
+        for sha, branchname, upstream in self._read_refs("refs/heads/"):
+            if self._should_ignore_branch(branchname):
+                continue
+
+            branch = Branch(sha=util.Sha(sha), name=branchname, upstream=upstream)
+            self.branches.append(branch)
+
+        remote_refs = f"refs/remotes/{self.personal_remote}/"
+        for sha, branchname, upstream in self._read_refs(remote_refs):
+            branch = Branch(sha=sha, name=branchname)
+            self.remote_shas[branchname] = branch
+
+    def _read_refs(
+        self, prefix: str
+    ) -> Iterator[tuple[util.Sha, str, TrackingBranch | None]]:
         branches = run_git(
             "for-each-ref",
             "--format=%(objectname) %(objecttype) %(refname) %(upstream)",
-            "refs/heads",
-            f"refs/remotes/{self.personal_remote}",
+            prefix,
         )
-
-        personal_re = re.escape(self.personal_remote)
 
         for line in branches.splitlines():
             sha, kind, refname, upstream = line.split(sep=" ")
             if kind != "commit":
                 continue
 
-            # Local branch
-            if m := re.match(r"refs/heads/(.*)", refname):
-                branchname = m.group(1)
-                if self._should_ignore_branch(branchname):
-                    continue
+            tracking = None
+            if upstream:
+                tracking = TrackingBranch(upstream, self.personal_remote)
 
-                branch = Branch(sha=util.Sha(sha), name=branchname)
-
-                if upstream:
-                    # and not re.match(f"refs/remotes/{personal_re}/", upstream):
-                    branch.upstream = TrackingBranch(upstream, self.personal_remote)
-
-                self.branches.append(branch)
-
-            # Branch on personal remote
-            if m := re.match(rf"refs/remotes/{personal_re}/(.*)", refname):
-                branchname = m.group(1)
-                branch = Branch(sha=util.Sha(sha), name=branchname)
-                self.remote_shas[branchname] = branch
+            yield util.Sha(sha), refname.removeprefix(prefix), tracking
 
     def _should_ignore_branch(self, name: str) -> bool:
         if name in self.eternal_branches:

@@ -21,6 +21,9 @@ class TrackingBranch:
     def refname(self) -> str:
         return f"refs/remotes/{self.remote}/{self.name}"
 
+    def __str__(self) -> str:
+        return f"{self.remote}/{self.name}"
+
 
 @dataclass
 class Branch:

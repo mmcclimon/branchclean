@@ -1,15 +1,32 @@
 from datetime import datetime
 from dataclasses import dataclass, field
 from typing import Optional
+import re
 
 from branchclean import util
 from branchclean.util import run_git
+
+
+class TrackingBranch:
+    def __init__(self, refname: str, personal_remote: str):
+        m = re.match(r"refs/remotes/(.*?)/(.*)", refname)
+        if not m:
+            raise ValueError(f"invalid refname: {refname}")
+
+        self.remote = m.group(1)
+        self.name = m.group(2)
+        self.is_personal = self.remote == personal_remote
+
+    @property
+    def refname(self) -> str:
+        return f"refs/remotes/{self.remote}/{self.name}"
 
 
 @dataclass
 class Branch:
     sha: util.Sha
     name: str
+    upstream: Optional[TrackingBranch] = None
     merge_base: util.Sha = field(init=False)
     birth: datetime = field(init=False)  # unix timestamp
     patch_id: Optional[str] = field(init=False)

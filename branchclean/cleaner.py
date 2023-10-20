@@ -1,7 +1,7 @@
 import re
 
 from branchclean import log, util
-from branchclean.branch import Branch
+from branchclean.branch import Branch, TrackingBranch
 from branchclean.util import run_git
 
 
@@ -17,8 +17,7 @@ class Cleaner:
 
         self.branches: list[Branch] = []
         self.remote_shas: dict[str, Branch] = {}  # $name -> $remoteBranch
-        self.other_upstreams: dict[str, str] = {}  # $branch -> $remote/$branch
-        self.patch_ids = {}
+        self.patch_ids: dict[str, util.Sha] = {}
         self.to_delete: list[Branch] = []
         self.to_update: dict[str, util.Sha] = {}
         self.to_push: list[Branch] = []
@@ -62,19 +61,21 @@ class Cleaner:
             if kind != "commit":
                 continue
 
+            # Local branch
             if m := re.match(r"refs/heads/(.*)", refname):
                 branchname = m.group(1)
                 if self._should_ignore_branch(branchname):
                     continue
 
-                if upstream and not re.match(f"refs/remotes/{personal_re}/", upstream):
-                    self.other_upstreams[branchname] = upstream.removeprefix(
-                        "refs/remotes/"
-                    )
-
                 branch = Branch(sha=util.Sha(sha), name=branchname)
+
+                if upstream:
+                    # and not re.match(f"refs/remotes/{personal_re}/", upstream):
+                    branch.upstream = TrackingBranch(upstream, self.personal_remote)
+
                 self.branches.append(branch)
 
+            # Branch on personal remote
             if m := re.match(rf"refs/remotes/{personal_re}/(.*)", refname):
                 branchname = m.group(1)
                 branch = Branch(sha=util.Sha(sha), name=branchname)
@@ -114,15 +115,15 @@ class Cleaner:
         for branch in self.branches:
             patch_id = branch.compute_patch_id()
 
-            if commit := self.patch_ids.get(patch_id):
+            if patch_id and (commit := self.patch_ids.get(patch_id)):
                 log.merged(f"{branch.name} merged as {commit.short()}")
                 self.to_delete.append(branch)
                 continue
 
             remote = self.remote_shas.get(branch.name)
 
-            if tracking := self.other_upstreams.get(branch.name):
-                self._process_external(branch, tracking)
+            if branch.upstream and not branch.upstream.is_personal:
+                self._process_external(branch, branch.upstream)
             elif remote is None:
                 self._process_missing(branch)
             elif remote.sha == branch.sha:
@@ -132,17 +133,16 @@ class Cleaner:
             else:
                 assert False, "unreachable"
 
-    def _process_external(self, branch: Branch, tracking: str):
-        remote, _ = tracking.split("/", maxsplit=2)
-        util.fetch(remote)
+    def _process_external(self, branch: Branch, tracking: TrackingBranch):
+        util.fetch(tracking.remote)
 
-        if not util.ref_exists("refs/remotes/" + tracking):
+        if not util.ref_exists(tracking.refname):
             log.update(f"{branch.name}; {tracking} is gone, will delete local")
             self.to_delete.append(branch)
             return
 
         upstream_sha = util.Sha(
-            run_git("show", "--no-patch", "--format=%H", "refs/remotes/" + tracking)
+            run_git("show", "--no-patch", "--format=%H", tracking.refname)
         )
 
         if upstream_sha == branch.sha:

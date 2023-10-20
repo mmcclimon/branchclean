@@ -1,4 +1,4 @@
-from branchclean import util
+from branchclean import log, util
 from branchclean.branch import Branch
 from branchclean.util import run_git
 
@@ -39,7 +39,7 @@ class Cleaner:
             self.branches.append(branch)
 
     def compute_main_patch_ids(self):
-        print("computing patch ids...")
+        log.note("computing patch ids...")
         # find the oldest sha for branches, compute patch ids for everything since
         oldest = min(map(lambda b: b.birth, self.branches))
 
@@ -59,7 +59,7 @@ class Cleaner:
                 continue
 
             if commit := self.patch_ids.get(patch_id):
-                print(f"{branch.name.decode()} merged as {commit.decode()}")
+                log.merged(f"{branch.name.decode()} merged as {commit.decode()}")
 
     def get_confirmation(self):
         pass

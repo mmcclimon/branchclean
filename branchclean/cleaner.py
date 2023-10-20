@@ -1,3 +1,5 @@
+import re
+
 from branchclean import log, util
 from branchclean.branch import Branch
 from branchclean.util import run_git
@@ -8,8 +10,10 @@ class Cleaner:
         # TODO: config
         self.upstream_remote = "gitbox"
         self.personal_remote = "michael"
+        self.eternal_branches = {"main", "master"}
 
         self.branches = []
+        self.remote_shas = []
         self.patch_ids = {}
 
     def run(self):
@@ -22,8 +26,8 @@ class Cleaner:
         self.make_changes()
 
     def assert_local_ok(self):
-        for line in run_git('status', '--branch', '--porcelain=v2').splitlines():
-            if not line.startswith('# branch.head'):
+        for line in run_git("status", "--branch", "--porcelain=v2").splitlines():
+            if not line.startswith("# branch.head"):
                 continue
 
             branch = line.split(" ")[2]
@@ -41,23 +45,32 @@ class Cleaner:
             "for-each-ref",
             "--format=%(objectname) %(objecttype) %(refname) %(upstream)",
             "refs/heads",
+            f"refs/remotes/{self.personal_remote}",
         )
 
         for line in branches.splitlines():
-            sha, kind, name, upstream = line.split(sep=" ")
+            sha, kind, refname, upstream = line.split(sep=" ")
             if kind != "commit":
                 continue
 
-            branch = Branch(
-                sha=util.Sha(sha),
-                name=name.removeprefix("refs/heads/"),
-                upstream=upstream,
+            if m := re.match(r"refs/heads/(.*)", refname):
+                name = m.group(1)
+                if name in self.eternal_branches:
+                    continue
+
+                branch = Branch(sha=util.Sha(sha), name=name)
+                self.branches.append(branch)
+
+            remote = re.compile(
+                r"refs/remotes/" + re.escape(self.personal_remote) + r"/(.*)"
             )
-            self.branches.append(branch)
+            if m := remote.match(refname):
+                branch = Branch(sha=util.Sha(sha), name=m.group(1))
+                self.remote_shas.append(branch)
 
     def compute_main_patch_ids(self):
         # find the oldest sha for branches, compute patch ids for everything since
-        oldest = min(map(lambda b: b.birth, self.branches))
+        oldest = min(map(lambda b: b.birth, self.branches + self.remote_shas))
 
         ymd = oldest.date().isoformat()
         since = oldest.isoformat()

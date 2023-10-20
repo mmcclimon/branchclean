@@ -1,6 +1,5 @@
 from datetime import datetime
 from dataclasses import dataclass, field
-from typing import Optional
 
 from branchclean import util
 from branchclean.util import run_git
@@ -10,7 +9,6 @@ from branchclean.util import run_git
 class Branch:
     sha: util.Sha
     name: str
-    upstream: Optional[str]
     merge_base: util.Sha = field(init=False)
     birth: datetime = field(init=False)  # unix timestamp
 

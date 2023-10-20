@@ -88,13 +88,39 @@ class Cleaner:
     def process_refs(self):
         for branch in self.branches:
             patch_id = branch.compute_patch_id()
-            if patch_id is None:
-                continue
 
             if commit := self.patch_ids.get(patch_id):
                 log.merged(f"{branch.name} merged as {commit.short()}")
+                continue
+
+            # This is goofy: store these in a better way.
+            remotes = list(filter(lambda r: r.name == branch.name, self.remote_shas))
+            remote = remotes[0] if len(remotes) else None
+
+            if remote is None:
+                self._process_missing(branch)
+            elif remote.sha == branch.sha:
+                self._process_matched(branch)
+            elif remote.sha != branch.sha:
+                self._process_mismatched(branch, remote)
             else:
-                log.note(f"{branch.name} is unmerged")
+                assert False, "unreachable"
+
+    def _process_missing(self, branch):
+        log.warn(f"{branch.name} is missing on remote and is not merged")
+
+    def _process_matched(self, branch):
+        log.ok(f"{branch.name} is already up to date")
+
+    def _process_mismatched(self, branch: Branch, remote: Branch):
+        local_time = run_git("show", "--no-patch", "--format=%ct", branch.sha)
+        remote_time = run_git("show", "--no-patch", "--format=%ct", remote.sha)
+
+        # TODO: actually do things here
+        if local_time > remote_time:
+            log.update(f"{branch.name} is newer locally; will push")
+        else:
+            log.update(f"{branch.name} is newer on remote; will update local")
 
     def get_confirmation(self):
         pass

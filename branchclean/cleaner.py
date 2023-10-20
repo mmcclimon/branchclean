@@ -35,7 +35,11 @@ class Cleaner:
             if kind != b"commit":
                 continue
 
-            branch = Branch(sha=util.Sha(sha), name=name, upstream=upstream)
+            branch = Branch(
+                sha=util.Sha(sha),
+                name=name.removeprefix(b"refs/heads/"),
+                upstream=upstream,
+            )
             self.branches.append(branch)
 
     def compute_main_patch_ids(self):
@@ -50,7 +54,7 @@ class Cleaner:
                 continue
 
             patch_id, commit = line.split()
-            self.patch_ids[patch_id] = commit
+            self.patch_ids[patch_id] = util.Sha(commit)
 
     def process_refs(self):
         for branch in self.branches:
@@ -59,7 +63,9 @@ class Cleaner:
                 continue
 
             if commit := self.patch_ids.get(patch_id):
-                log.merged(f"{branch.name.decode()} merged as {commit.decode()}")
+                log.merged(f"{branch.name.decode()} merged as {commit.short()}")
+            else:
+                log.note(f"{branch.name.decode()} is unmerged")
 
     def get_confirmation(self):
         pass

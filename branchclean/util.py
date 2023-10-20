@@ -1,7 +1,4 @@
 import subprocess
-import typing
-
-Sha = typing.NewType("Sha", bytes)
 
 
 def run_git(*args, stdin=None) -> bytes:
@@ -14,3 +11,11 @@ def run_git(*args, stdin=None) -> bytes:
     cmd = ["git"] + list(args)
     res = subprocess.run(cmd, check=True, capture_output=True, input=stdin)
     return res.stdout.removesuffix(b"\n")
+
+
+class Sha(bytes):
+    def string(self) -> str:
+        return self.decode('ascii')
+
+    def short(self) -> str:
+        return self.string()[:8]

@@ -9,8 +9,8 @@ from branchclean.util import run_git
 @dataclass
 class Branch:
     sha: util.Sha
-    name: bytes
-    upstream: Optional[bytes]
+    name: str
+    upstream: Optional[str]
     merge_base: util.Sha = field(init=False)
     birth: datetime = field(init=False)  # unix timestamp
 

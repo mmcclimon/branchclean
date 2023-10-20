@@ -23,12 +23,12 @@ class Cleaner:
 
     def assert_local_ok(self):
         for line in run_git('status', '--branch', '--porcelain=v2').splitlines():
-            if not line.startswith(b'# branch.head'):
+            if not line.startswith('# branch.head'):
                 continue
 
-            branch = line.split(b" ")[2]
-            if branch != b"main":
-                log.fatal(f"cannot proceed from branch {branch.decode()}")
+            branch = line.split(" ")[2]
+            if branch != "main":
+                log.fatal(f"cannot proceed from branch {branch}")
 
             return
 
@@ -44,13 +44,13 @@ class Cleaner:
         )
 
         for line in branches.splitlines():
-            sha, kind, name, upstream = line.split(sep=b" ")
-            if kind != b"commit":
+            sha, kind, name, upstream = line.split(sep=" ")
+            if kind != "commit":
                 continue
 
             branch = Branch(
                 sha=util.Sha(sha),
-                name=name.removeprefix(b"refs/heads/"),
+                name=name.removeprefix("refs/heads/"),
                 upstream=upstream,
             )
             self.branches.append(branch)
@@ -79,9 +79,9 @@ class Cleaner:
                 continue
 
             if commit := self.patch_ids.get(patch_id):
-                log.merged(f"{branch.name.decode()} merged as {commit.short()}")
+                log.merged(f"{branch.name} merged as {commit.short()}")
             else:
-                log.note(f"{branch.name.decode()} is unmerged")
+                log.note(f"{branch.name} is unmerged")
 
     def get_confirmation(self):
         pass

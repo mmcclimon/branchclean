@@ -6,14 +6,14 @@ from branchclean.util import run_git
 
 
 class Cleaner:
-    def __init__(self):
-        # TODO: config
-        self.upstream_remote = "gitbox"
-        self.personal_remote = "michael"
-        self.eternal_branches = {"main", "master"}
-        self.ignore_prefixes = ["boneyard/"]
-        self.main_name = "main"
-        self.really = False
+    def __init__(self, **kwargs):
+        self.upstream_remote = kwargs.get("upstream_remote", "gitbox")
+        self.personal_remote = kwargs.get("personal_remote", "michael")
+        self.main_name = kwargs.get("main_name", "main")
+        self.really = kwargs.get("really", False)
+        self.skip_fetch = kwargs.get("skip_fetch", False)
+        self.eternal_branches = kwargs.get("eternal_branches", {"main", "master"})
+        self.ignore_prefixes = kwargs.get("ignore_prefixes", [])
 
         self.branches: list[Branch] = []
         self.remote_shas: dict[str, Branch] = {}  # $name -> $remoteBranch
@@ -43,6 +43,9 @@ class Cleaner:
             return
 
     def do_initial_fetch(self):
+        if self.skip_fetch:
+            return
+
         util.fetch(self.upstream_remote)
         util.fetch(self.personal_remote)
 
@@ -170,6 +173,9 @@ class Cleaner:
 
     def get_confirmation(self):
         if not self.has_changes():
+            return
+
+        if self.really:
             return
 
         print("\nMake changes? (y/n) ", end="")

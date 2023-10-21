@@ -1,6 +1,6 @@
 import argparse
 
-from branchclean.cleaner import Cleaner
+from branchclean.cleaner import Cleaner, RemoteCleaner
 
 ap = argparse.ArgumentParser(
     prog="git-tidy",
@@ -48,6 +48,12 @@ ap.add_argument(
     action="store_true",
 )
 
+ap.add_argument(
+    "--remote",
+    help="tidy personal remote, not local branches",
+    action="store_true",
+)
+
 ap.add_argument("--master", help="use master, not main", action="store_true")
 
 ap.add_argument("--really", help="do not ask, just do", action="store_true")
@@ -59,7 +65,12 @@ def run():
     and constructs the thing to actually run the branch cleaner.
     """
     args = ap.parse_args()
-    Cleaner(
+
+    cls = Cleaner
+    if args.remote:
+        cls = RemoteCleaner
+
+    cls(
         upstream_remote=args.upstream,
         personal_remote=args.personal,
         main_name=("master" if args.master else "main"),

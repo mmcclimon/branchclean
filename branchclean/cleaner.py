@@ -1,3 +1,4 @@
+import itertools
 from typing import Iterator
 
 from branchclean import log, util
@@ -93,11 +94,7 @@ class Cleaner:
         return False
 
     def compute_main_patch_ids(self):
-        # find the oldest sha for branches, compute patch ids for everything since
-        oldest = min(
-            [b.birth for b in self.branches]
-            + [b.birth for b in self.remote_shas.values()]
-        )
+        oldest = min((b.birth for b in self._relevant_branches()))
 
         ymd = oldest.date().isoformat()
         since = oldest.isoformat()
@@ -111,6 +108,9 @@ class Cleaner:
 
             patch_id, commit = line.split()
             self.patch_ids[patch_id] = util.Sha(commit)
+
+    def _relevant_branches(self) -> Iterator[Branch]:
+        return itertools.chain(self.branches, self.remote_shas.values())
 
     def process_refs(self):
         for branch in self.branches:
@@ -204,3 +204,33 @@ class Cleaner:
         for branchname, sha in self.to_update.items():
             run_git("update-ref", f"refs/heads/{branchname}", sha)
             log.ok(f"updated {branchname}")
+
+
+class RemoteCleaner(Cleaner):
+    def _relevant_branches(self) -> Iterator[Branch]:
+        return itertools.chain(self.remote_shas.values())
+
+    def process_refs(self):
+        for branch in self.remote_shas.values():
+            if self._should_ignore_branch(branch.name):
+                continue
+
+            branchname = f"{self.personal_remote}/{branch.name}"
+
+            patch_id = branch.compute_patch_id()
+
+            if patch_id and (commit := self.patch_ids.get(patch_id)):
+                log.merged(f"{branchname} merged as {commit.short()}")
+                self.to_delete.append(branch)
+                continue
+
+            log.note(f"{branchname} is unmerged; skipping")
+
+    def make_changes(self):
+        if not self.really or not self.to_delete:
+            return
+
+        run_git("push", "-d", self.personal_remote, *[b.name for b in self.to_delete])
+
+        for branch in self.to_delete:
+            log.ok(f"deleted {branch.name}")

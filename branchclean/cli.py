@@ -76,6 +76,7 @@ def run():
         main_name=("master" if args.master else "main"),
         eternal_branches=set(args.eternal),
         ignore_prefixes=args.ignore_prefix,
+    ).run(
         really=args.really,
         skip_fetch=args.no_fetch,
-    ).run()
+    )

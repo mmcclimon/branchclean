@@ -7,14 +7,25 @@ from branchclean.util import run_git
 
 
 class Cleaner:
-    def __init__(self, **kwargs):
-        self.upstream_remote = kwargs.get("upstream_remote", "gitbox")
-        self.personal_remote = kwargs.get("personal_remote", "michael")
-        self.main_name = kwargs.get("main_name", "main")
-        self.really = kwargs.get("really", False)
-        self.skip_fetch = kwargs.get("skip_fetch", False)
-        self.eternal_branches = kwargs.get("eternal_branches", {"main", "master"})
-        self.ignore_prefixes = kwargs.get("ignore_prefixes", [])
+    """
+    Cleaner is the class that does the actual work of tidying branches.
+    Construct an object and then call run() on it, and it will do the thing.
+    """
+
+    def __init__(
+        self,
+        upstream_remote="gitbox",
+        personal_remote="michael",
+        main_name="main",
+        eternal_branches=None,
+        ignore_prefixes=None,
+        **kwargs,
+    ):
+        self.upstream_remote = upstream_remote
+        self.personal_remote = personal_remote
+        self.main_name = main_name
+        self.eternal_branches = eternal_branches or {"main", "master"}
+        self.ignore_prefixes = ignore_prefixes or []
 
         self.branches: list[Branch] = []
         self.remote_shas: dict[str, Branch] = {}  # $name -> $remoteBranch
@@ -23,14 +34,15 @@ class Cleaner:
         self.to_update: dict[str, util.Sha] = {}
         self.to_push: list[Branch] = []
 
-    def run(self):
+    def run(self, really=False, skip_fetch=False):
         self.assert_local_ok()
-        self.do_initial_fetch()
+        if not skip_fetch:
+            self.do_initial_fetch()
         self.read_refs()
         self.compute_main_patch_ids()
         self.process_refs()
-        self.get_confirmation()
-        self.make_changes()
+        if self.get_confirmation(really):
+            self.make_changes()
 
     def assert_local_ok(self):
         for line in run_git("status", "--branch", "--porcelain=v2").splitlines():
@@ -44,9 +56,6 @@ class Cleaner:
             return
 
     def do_initial_fetch(self):
-        if self.skip_fetch:
-            return
-
         util.fetch(self.upstream_remote)
         util.fetch(self.personal_remote)
 
@@ -171,25 +180,21 @@ class Cleaner:
             log.update(f"{branch.name} is newer on remote; will update local")
             self.to_update[branch.name] = remote.sha
 
-    def get_confirmation(self):
-        if not self.has_changes():
-            return
+    def get_confirmation(self, really: bool) -> bool:
+        if really:
+            return True
 
-        if self.really:
-            return
+        if not self.has_changes():
+            return False
 
         print("\nMake changes? (y/n) ", end="")
         answer = input()
-        if answer.lower() == "y":
-            self.really = True
+        return answer.lower() == "y"
 
     def has_changes(self):
         return len(self.to_delete) or len(self.to_update) or len(self.to_push)
 
     def make_changes(self):
-        if not self.really:
-            return
-
         if self.to_delete:
             run_git("branch", "-D", *[b.name for b in self.to_delete])
 
@@ -227,9 +232,6 @@ class RemoteCleaner(Cleaner):
             log.note(f"{branchname} is unmerged; skipping")
 
     def make_changes(self):
-        if not self.really or not self.to_delete:
-            return
-
         run_git("push", "-d", self.personal_remote, *[b.name for b in self.to_delete])
 
         for branch in self.to_delete:

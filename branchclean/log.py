@@ -8,16 +8,16 @@ class Color(enum.StrEnum):
     CYAN = "0;96m"
     YELLOW = "0;93m"
 
-    def str(self) -> str:
+    def __str__(self) -> str:
         return "\x1b[" + self
 
 
 def _gen(prefix: str, color: Color):
     # I could use a library for this, but also...
-    reset = Color.CLEAR.str()
+    reset = Color.CLEAR
 
     def fn(msg: str):
-        print(f"{color.str()}{prefix.upper():8}{reset} {msg}")
+        print(f"{color}{prefix.upper():8}{reset} {msg}")
 
     return fn
 

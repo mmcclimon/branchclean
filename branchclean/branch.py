@@ -1,5 +1,5 @@
 from datetime import datetime
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, InitVar
 from typing import Optional
 import re
 
@@ -33,10 +33,10 @@ class Branch:
     merge_base: util.Sha = field(init=False)
     birth: datetime = field(init=False)  # unix timestamp
     patch_id: Optional[str] = field(init=False)
+    main: InitVar[str] = "main"
 
-    def __post_init__(self):
-        # XXX get rid of hardcoded 'main' here
-        self.merge_base = util.Sha(run_git("merge-base", self.sha, "main"))
+    def __post_init__(self, main):
+        self.merge_base = util.Sha(run_git("merge-base", self.sha, main))
         birth = run_git("show", "-s", "--format=%ct", self.merge_base)
         self.birth = datetime.fromtimestamp(int(birth))
         self.patch_id = None

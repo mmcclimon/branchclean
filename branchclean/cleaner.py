@@ -64,12 +64,17 @@ class Cleaner:
             if self._should_ignore_branch(branchname):
                 continue
 
-            branch = Branch(sha=util.Sha(sha), name=branchname, upstream=upstream)
+            branch = Branch(
+                sha=util.Sha(sha),
+                name=branchname,
+                upstream=upstream,
+                main=self.main_name,
+            )
             self.branches.append(branch)
 
         remote_refs = f"refs/remotes/{self.personal_remote}/"
         for sha, branchname, upstream in self._read_refs(remote_refs):
-            branch = Branch(sha=sha, name=branchname)
+            branch = Branch(sha=sha, name=branchname, main=self.main_name)
             self.remote_shas[branchname] = branch
 
     def _read_refs(
@@ -172,7 +177,6 @@ class Cleaner:
         local_time = run_git("show", "--no-patch", "--format=%ct", branch.sha)
         remote_time = run_git("show", "--no-patch", "--format=%ct", remote.sha)
 
-        # TODO: actually do things here
         if local_time > remote_time:
             log.update(f"{branch.name} is newer locally; will push")
             self.to_push.append(branch)

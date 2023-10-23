@@ -19,7 +19,6 @@ class Cleaner:
         main_name="main",
         eternal_branches=None,
         ignore_prefixes=None,
-        **kwargs,
     ):
         self.upstream_remote = upstream_remote
         self.personal_remote = personal_remote

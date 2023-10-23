@@ -28,7 +28,7 @@ class Cleaner:
         self.ignore_prefixes = ignore_prefixes or []
 
         self.branches: list[Branch] = []
-        self.remote_shas: dict[str, Branch] = {}  # $name -> $remoteBranch
+        self.remote_refs: dict[str, Branch] = {}  # $name -> $remoteBranch
         self.patch_ids: dict[str, util.Sha] = {}
         self.to_delete: list[Branch] = []
         self.to_update: dict[str, util.Sha] = {}
@@ -75,7 +75,7 @@ class Cleaner:
         remote_refs = f"refs/remotes/{self.personal_remote}/"
         for sha, branchname, upstream in self._read_refs(remote_refs):
             branch = Branch(sha=sha, name=branchname, main=self.main_name)
-            self.remote_shas[branchname] = branch
+            self.remote_refs[branchname] = branch
 
     def _read_refs(
         self, prefix: str
@@ -124,7 +124,7 @@ class Cleaner:
             self.patch_ids[patch_id] = util.Sha(commit)
 
     def _relevant_branches(self) -> Iterator[Branch]:
-        return itertools.chain(self.branches, self.remote_shas.values())
+        return itertools.chain(self.branches, self.remote_refs.values())
 
     def process_refs(self):
         for branch in self.branches:
@@ -135,7 +135,7 @@ class Cleaner:
                 self.to_delete.append(branch)
                 continue
 
-            remote = self.remote_shas.get(branch.name)
+            remote = self.remote_refs.get(branch.name)
 
             if branch.upstream and not branch.upstream.is_personal:
                 self._process_external(branch, branch.upstream)
@@ -217,10 +217,10 @@ class Cleaner:
 
 class RemoteCleaner(Cleaner):
     def _relevant_branches(self) -> Iterator[Branch]:
-        return itertools.chain(self.remote_shas.values())
+        return itertools.chain(self.remote_refs.values())
 
     def process_refs(self):
-        for branch in self.remote_shas.values():
+        for branch in self.remote_refs.values():
             if self._should_ignore_branch(branch.name):
                 continue
 

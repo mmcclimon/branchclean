@@ -128,7 +128,7 @@ class Cleaner:
 
     def process_refs(self):
         for branch in self.branches:
-            patch_id = branch.compute_patch_id()
+            patch_id = branch.patch_id
 
             if patch_id and (commit := self.patch_ids.get(patch_id)):
                 log.merged(f"{branch.name} merged as {commit.short()}")

@@ -225,7 +225,7 @@ class RemoteCleaner(Cleaner):
 
             branchname = f"{self.personal_remote}/{branch.name}"
 
-            patch_id = branch.compute_patch_id()
+            patch_id = branch.patch_id
 
             if patch_id and (commit := self.patch_ids.get(patch_id)):
                 log.merged(f"{branchname} merged as {commit.short()}")

@@ -1,9 +1,12 @@
 import itertools
+import pathlib
 from typing import Iterator
 
 from branchclean import log, util
 from branchclean.branch import Branch, TrackingBranch
 from branchclean.util import run_git
+
+NULL_PATCH_ID = "0" * 40
 
 
 class Cleaner:
@@ -14,17 +17,20 @@ class Cleaner:
 
     def __init__(
         self,
+        *,
         upstream_remote="gitbox",
         personal_remote="michael",
         main_name="main",
         eternal_branches=None,
         ignore_prefixes=None,
+        patch_id_filename=".git-tidy-patch-ids",
     ):
         self.upstream_remote = upstream_remote
         self.personal_remote = personal_remote
         self.main_name = main_name
         self.eternal_branches = eternal_branches or {"main", "master"}
         self.ignore_prefixes = ignore_prefixes or []
+        self.patch_id_filename = patch_id_filename
 
         self.branches: list[Branch] = []
         self.remote_refs: dict[str, Branch] = {}  # $name -> $remoteBranch
@@ -107,23 +113,68 @@ class Cleaner:
         return False
 
     def compute_main_patch_ids(self):
-        oldest = min((b.birth for b in self._relevant_branches()))
+        commit_patch_ids = self.load_patch_ids_from_file()
 
+        oldest = min(b.birth for b in self._relevant_branches())
         ymd = oldest.date().isoformat()
         since = oldest.isoformat()
-        log.note(f"computing patch ids on {self.main_name} since {ymd}...")
 
-        for commit in run_git("log", "--format=%H", "--since", since).splitlines():
+        all_shas = set(run_git("log", "--format=%H", "--since", since).splitlines())
+
+        need_patch_ids = all_shas - set(commit_patch_ids.keys())
+        if not need_patch_ids:
+            return
+
+        count = len(need_patch_ids)
+        s = '' if count == 1 else 's'
+        log.note(f"computing {count} patch id{s} on {self.main_name} since {ymd}")
+
+        for commit in need_patch_ids:
             patch = run_git("diff-tree", "--patch-with-raw", commit)
             line = run_git("patch-id", stdin=patch)
             if len(line) == 0:
+                commit_patch_ids[commit] = NULL_PATCH_ID
                 continue
 
             patch_id, commit = line.split()
             self.patch_ids[patch_id] = util.Sha(commit)
+            commit_patch_ids[commit] = patch_id
+
+        self.save_patch_ids(commit_patch_ids)
 
     def _relevant_branches(self) -> Iterator[Branch]:
         return itertools.chain(self.branches, self.remote_refs.values())
+
+    # commit -> patch_id-or-allballs
+    def load_patch_ids_from_file(self) -> dict[str, str]:
+        if self.patch_id_filename is None:
+            return {}
+
+        path = pathlib.Path(self.patch_id_filename)
+
+        if not path.exists():
+            log.note(f"{path} not found")
+            return {}
+
+        commits = {}
+        log.note(f"loading patch ids from {path}")
+
+        with open(path) as f:
+            for line in f:
+                commit, patch_id = line.split()
+                commits[commit] = patch_id
+                if patch_id != NULL_PATCH_ID:
+                    self.patch_ids[patch_id] = util.Sha(commit)
+
+        return commits
+
+    def save_patch_ids(self, commit_patch_ids: dict[str, str]):
+        if self.patch_id_filename is None:
+            return
+
+        with open(self.patch_id_filename, "w") as f:
+            for commit, patch_id in commit_patch_ids.items():
+                f.write(f"{commit} {patch_id}\n")
 
     def process_refs(self):
         for branch in self.branches:
@@ -216,7 +267,7 @@ class Cleaner:
 
 class RemoteCleaner(Cleaner):
     def _relevant_branches(self) -> Iterator[Branch]:
-        return itertools.chain(self.remote_refs.values())
+        return iter(self.remote_refs.values())
 
     def process_refs(self):
         for branch in self.remote_refs.values():

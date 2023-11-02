@@ -9,8 +9,8 @@ from branchclean.util import run_git
 
 
 class TrackingBranch:
-    def __init__(self, refname: bytes, personal_remote: bytes):
-        m = re.match(rb"refs/remotes/(.*?)/(.*)", refname)
+    def __init__(self, refname: str, personal_remote: str):
+        m = re.match(r"refs/remotes/(.*?)/(.*)", refname)
         if not m:
             raise ValueError(f"invalid refname: {refname}")
 
@@ -19,21 +19,21 @@ class TrackingBranch:
         self.is_personal = self.remote == personal_remote
 
     @property
-    def refname(self) -> bytes:
-        return b"refs/remotes/%s/%s" % (self.remote, self.name)
+    def refname(self) -> str:
+        return f"refs/remotes/{self.remote}/{self.name}"
 
-    def __bytes__(self) -> bytes:
-        return b"/".join([self.remote, self.name])
+    def __str__(self) -> str:
+        return f"{self.remote}/{self.name}"
 
 
 @dataclass
 class Branch:
     sha: util.Sha
-    name: bytes
+    name: str
     upstream: Optional[TrackingBranch] = None
     merge_base: util.Sha = field(init=False)
     birth: datetime = field(init=False)  # unix timestamp
-    main: InitVar[bytes] = b"main"
+    main: InitVar[str] = "main"
 
     def __post_init__(self, main):
         self.merge_base = util.Sha(run_git("merge-base", self.sha, main))
@@ -48,4 +48,4 @@ class Branch:
             return
 
         patch_id, *_ = line.split()
-        return patch_id.decode("ascii")
+        return patch_id

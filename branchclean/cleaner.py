@@ -14,23 +14,23 @@ class Cleaner:
 
     def __init__(
         self,
-        upstream_remote=b"gitbox",
-        personal_remote=b"michael",
-        main_name=b"main",
+        upstream_remote="gitbox",
+        personal_remote="michael",
+        main_name="main",
         eternal_branches=None,
         ignore_prefixes=None,
     ):
         self.upstream_remote = upstream_remote
         self.personal_remote = personal_remote
         self.main_name = main_name
-        self.eternal_branches = eternal_branches or {b"main", b"master"}
+        self.eternal_branches = eternal_branches or {"main", "master"}
         self.ignore_prefixes = ignore_prefixes or []
 
         self.branches: list[Branch] = []
-        self.remote_refs: dict[bytes, Branch] = {}  # $name -> $remoteBranch
+        self.remote_refs: dict[str, Branch] = {}  # $name -> $remoteBranch
         self.patch_ids: dict[str, util.Sha] = {}
         self.to_delete: list[Branch] = []
-        self.to_update: dict[bytes, util.Sha] = {}
+        self.to_update: dict[str, util.Sha] = {}
         self.to_push: list[Branch] = []
 
     def run(self, really=False, skip_fetch=False):
@@ -44,13 +44,13 @@ class Cleaner:
             self.make_changes()
 
     def assert_local_ok(self):
-        for line in run_git(b"status", b"--branch", b"--porcelain=v2").splitlines():
-            if not line.startswith(b"# branch.head"):
+        for line in run_git("status", "--branch", "--porcelain=v2").splitlines():
+            if not line.startswith("# branch.head"):
                 continue
 
-            branch = line.split(b" ")[2]
+            branch = line.split(" ")[2]
             if branch != self.main_name:
-                log.fatal(b"cannot proceed from branch %s" % branch)
+                log.fatal(f"cannot proceed from branch {branch}")
 
             return
 
@@ -59,7 +59,7 @@ class Cleaner:
         util.fetch(self.personal_remote)
 
     def read_refs(self):
-        for sha, branchname, upstream in self._read_refs(b"refs/heads/"):
+        for sha, branchname, upstream in self._read_refs("refs/heads/"):
             if self._should_ignore_branch(branchname):
                 continue
 
@@ -71,23 +71,23 @@ class Cleaner:
             )
             self.branches.append(branch)
 
-        remote_refs = b"refs/remotes/%s/" % self.personal_remote
+        remote_refs = f"refs/remotes/{self.personal_remote}/"
         for sha, branchname, upstream in self._read_refs(remote_refs):
             branch = Branch(sha=sha, name=branchname, main=self.main_name)
             self.remote_refs[branchname] = branch
 
     def _read_refs(
-        self, prefix: bytes
-    ) -> Iterator[tuple[util.Sha, bytes, TrackingBranch | None]]:
+        self, prefix: str
+    ) -> Iterator[tuple[util.Sha, str, TrackingBranch | None]]:
         branches = run_git(
-            b"for-each-ref",
-            b"--format=%(objectname) %(objecttype) %(refname) %(upstream)",
+            "for-each-ref",
+            "--format=%(objectname) %(objecttype) %(refname) %(upstream)",
             prefix,
         )
 
         for line in branches.splitlines():
-            sha, kind, refname, upstream = line.split(sep=b" ")
-            if kind != b"commit":
+            sha, kind, refname, upstream = line.split(sep=" ")
+            if kind != "commit":
                 continue
 
             tracking = None
@@ -96,7 +96,7 @@ class Cleaner:
 
             yield util.Sha(sha), refname.removeprefix(prefix), tracking
 
-    def _should_ignore_branch(self, name: bytes) -> bool:
+    def _should_ignore_branch(self, name: str) -> bool:
         if name in self.eternal_branches:
             return True
 
@@ -109,13 +109,13 @@ class Cleaner:
     def compute_main_patch_ids(self):
         oldest = min((b.birth for b in self._relevant_branches()))
 
-        ymd = oldest.date().isoformat().encode('ascii')
-        since = oldest.isoformat().encode('ascii')
-        log.note(b"computing patch ids on %s since %s..." % (self.main_name, ymd))
+        ymd = oldest.date().isoformat()
+        since = oldest.isoformat()
+        log.note(f"computing patch ids on {self.main_name} since {ymd}...")
 
-        for commit in run_git(b"log", b"--format=%H", b"--since", since).splitlines():
-            patch = run_git(b"diff-tree", b"--patch-with-raw", commit)
-            line = run_git(b"patch-id", stdin=patch)
+        for commit in run_git("log", "--format=%H", "--since", since).splitlines():
+            patch = run_git("diff-tree", "--patch-with-raw", commit)
+            line = run_git("patch-id", stdin=patch)
             if len(line) == 0:
                 continue
 
@@ -130,7 +130,7 @@ class Cleaner:
             patch_id = branch.patch_id
 
             if patch_id and (commit := self.patch_ids.get(patch_id)):
-                log.merged(b"%s merged as %s" % (branch.name, commit.short()))
+                log.merged(f"{branch.name} merged as {commit.short()}")
                 self.to_delete.append(branch)
                 continue
 
@@ -151,7 +151,7 @@ class Cleaner:
         util.fetch(tracking.remote)
 
         if not util.ref_exists(tracking.refname):
-            log.update(b"%s; %s is gone, will delete local" % (branch.name, tracking))
+            log.update(f"{branch.name}; {tracking} is gone, will delete local")
             self.to_delete.append(branch)
             return
 
@@ -160,27 +160,27 @@ class Cleaner:
         )
 
         if upstream_sha == branch.sha:
-            log.ok(b"%s matches %s" % (branch.name, tracking))
+            log.ok(f"{branch.name} matches {tracking}")
             return
 
-        log.update(b"%s; %s has changed, will update local" % (branch.name, tracking))
+        log.update(f"{branch.name}; {tracking} has changed, will update local")
         self.to_update[branch.name] = upstream_sha
 
     def _process_missing(self, branch):
-        log.warn(b"%s is missing on remote and is not merged" % branch.name)
+        log.warn(f"{branch.name} is missing on remote and is not merged")
 
     def _process_matched(self, branch):
-        log.ok(b"%s is already up to date" % branch.name)
+        log.ok(f"{branch.name} is already up to date")
 
     def _process_mismatched(self, branch: Branch, remote: Branch):
         local_time = run_git("show", "--no-patch", "--format=%ct", branch.sha)
         remote_time = run_git("show", "--no-patch", "--format=%ct", remote.sha)
 
         if local_time > remote_time:
-            log.update(b"%s is newer locally; will push" % branch.name)
+            log.update(f"{branch.name} is newer locally; will push")
             self.to_push.append(branch)
         else:
-            log.update(b"%s is newer on remote; will update local" % branch.name)
+            log.update(f"{branch.name} is newer on remote; will update local")
             self.to_update[branch.name] = remote.sha
 
     def get_confirmation(self, really: bool) -> bool:
@@ -202,16 +202,16 @@ class Cleaner:
             run_git("branch", "-D", *[b.name for b in self.to_delete])
 
         for branch in self.to_delete:
-            log.ok(b"deleted %s" % branch.name)
+            log.ok(f"deleted {branch.name}")
 
         for branch in self.to_push:
             b = branch.name
             run_git("push", "--force-with-lease", self.personal_remote, f"{b}:{b}")
-            log.ok(b"pushed %s" % branch.name)
+            log.ok(f"pushed {b}")
 
         for branchname, sha in self.to_update.items():
             run_git("update-ref", f"refs/heads/{branchname}", sha)
-            log.ok(b"updated %s" % branchname)
+            log.ok(f"updated {branchname}")
 
 
 class RemoteCleaner(Cleaner):
@@ -223,19 +223,19 @@ class RemoteCleaner(Cleaner):
             if self._should_ignore_branch(branch.name):
                 continue
 
-            branchname = b"/".join([self.personal_remote, branch.name])
+            branchname = f"{self.personal_remote}/{branch.name}"
 
             patch_id = branch.patch_id
 
             if patch_id and (commit := self.patch_ids.get(patch_id)):
-                log.merged(b"%s merged as %s" % (branchname, commit.short()))
+                log.merged(f"{branchname} merged as {commit.short()}")
                 self.to_delete.append(branch)
                 continue
 
-            log.note(b"%s is unmerged; skipping" % branchname)
+            log.note(f"{branchname} is unmerged; skipping")
 
     def make_changes(self):
         run_git("push", "-d", self.personal_remote, *[b.name for b in self.to_delete])
 
         for branch in self.to_delete:
-            log.ok(b"deleted %s" % branch.name)
+            log.ok(f"deleted {branch.name}")

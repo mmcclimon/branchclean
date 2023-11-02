@@ -3,7 +3,7 @@ import subprocess
 from branchclean import log
 
 
-def run_git(*args, stdin=None) -> bytes:
+def run_git(*args, stdin=None) -> str:
     """
     Runs git with the arguments given in args. If stdin is provided, it's used
     as the stdin to the git process. Returns a raw byte string of git's
@@ -11,15 +11,17 @@ def run_git(*args, stdin=None) -> bytes:
     """
 
     cmd = ["git"] + list(args)
-    res = subprocess.run(cmd, check=True, capture_output=True, input=stdin)
-    return res.stdout.removesuffix(b"\n")
+    res = subprocess.run(
+        cmd, check=True, capture_output=True, encoding="utf8", input=stdin
+    )
+    return res.stdout.removesuffix("\n")
 
 
-def fetch(remote_name: bytes, cache=True):
+def fetch(remote_name: str, cache=True):
     if fetch.cache.get(remote_name):
         return
 
-    log.note(b"fetching %s" % remote_name)
+    log.note(f"fetching {remote_name}")
     run_git("fetch", remote_name)
 
     if cache:
@@ -35,9 +37,6 @@ def ref_exists(refname) -> bool:
     return res.returncode == 0
 
 
-class Sha(bytes):
-    def short(self) -> bytes:
+class Sha(str):
+    def short(self) -> str:
         return self[:8]
-
-    def __str__(self) -> str:
-        return self.decode("ascii")

@@ -1,5 +1,4 @@
 import argparse
-import os
 
 from branchclean.cleaner import Cleaner, RemoteCleaner
 
@@ -72,11 +71,11 @@ def run():
         cls = RemoteCleaner
 
     cls(
-        upstream_remote=os.fsencode(args.upstream),
-        personal_remote=os.fsencode(args.personal),
-        main_name=(b"master" if args.master else b"main"),
-        eternal_branches=set(map(os.fsencode, args.eternal)),
-        ignore_prefixes=[os.fsencode(ip) for ip in args.ignore_prefix],
+        upstream_remote=args.upstream,
+        personal_remote=args.personal,
+        main_name=("master" if args.master else "main"),
+        eternal_branches=set(args.eternal),
+        ignore_prefixes=args.ignore_prefix,
     ).run(
         really=args.really,
         skip_fetch=args.no_fetch,

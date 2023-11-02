@@ -11,18 +11,13 @@ class Color(enum.StrEnum):
     def __str__(self) -> str:
         return "\x1b[" + self
 
-    def __bytes__(self) -> bytes:
-        return b"\x1b[%s" % self.encode('ascii')
-
 
 def _gen(prefix: str, color: Color):
     # I could use a library for this, but also...
     reset = Color.CLEAR
-    pre = prefix.upper().encode('ascii')
 
-    def fn(msg: bytes):
-        sys.stdout.buffer.write(b"%s%-8s%s %s\n" % (color, pre, reset, msg))
-        sys.stdout.buffer.flush()
+    def fn(msg: str):
+        print(f"{color}{prefix.upper():8}{reset} {msg}")
 
     return fn
 
@@ -34,6 +29,6 @@ warn = _gen("warn", Color.YELLOW)
 ok = _gen("ok", Color.GREEN)
 
 
-def fatal(msg: bytes):
-    sys.stdout.buffer.write(b"fatal: %s\n" % msg)
+def fatal(msg: str):
+    print("fatal: " + msg)
     sys.exit(1)

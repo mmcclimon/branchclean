@@ -55,7 +55,13 @@ ap.add_argument(
     action="store_true",
 )
 
-ap.add_argument("--master", help="use master, not main", action="store_true")
+ap.add_argument(
+    "--branch",
+    "-b",
+    help="check for merges into this branch (not main)",
+    metavar="<branch>",
+    default="main",
+)
 
 ap.add_argument("--really", help="do not ask, just do", action="store_true")
 
@@ -74,7 +80,7 @@ def run():
     cleaner = cls(
         upstream_remote=args.upstream,
         personal_remote=args.personal,
-        main_name=("master" if args.master else "main"),
+        main_name=args.branch,
         eternal_branches=set(args.eternal),
         ignore_prefixes=args.ignore_prefix,
     )

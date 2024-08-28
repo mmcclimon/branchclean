@@ -130,11 +130,13 @@ class Cleaner:
         log.note(f"computing {count} patch id{s} on {self.main_name} since {ymd}")
 
         for commit in need_patch_ids:
-            patch = run_git("diff-tree", "--patch-with-raw", commit)
-            line = run_git("patch-id", stdin=patch)
+            patch = run_git("diff-tree", "--patch-with-raw", commit, raw=True)
+            line = run_git("patch-id", stdin=patch, raw=True)
             if len(line) == 0:
                 commit_patch_ids[commit] = NULL_PATCH_ID
                 continue
+
+            line = line.decode("ascii")
 
             patch_id, commit = line.split()
             self.patch_ids[patch_id] = util.Sha(commit)

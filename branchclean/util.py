@@ -3,17 +3,30 @@ import subprocess
 from branchclean import log
 
 
-def run_git(*args, stdin=None) -> str:
+def run_git(*args, stdin=None, raw=False) -> str | bytes:
     """
     Runs git with the arguments given in args. If stdin is provided, it's used
-    as the stdin to the git process. Returns a raw byte string of git's
-    stdout, with final newline removed.
+    as the stdin to the git process. If raw is true, returns a raw byte string
+    of git's stdout (including the trailing newline). If raw is not true,
+    assumes that the output is utf-8, and returns string with final newline
+    removed.
     """
 
     cmd = ["git"] + list(args)
-    res = subprocess.run(
-        cmd, check=True, capture_output=True, encoding="utf8", input=stdin
-    )
+    kwargs = {
+            "check": True,
+            "capture_output": True,
+            "input": stdin
+            }
+
+    if not raw:
+        kwargs["encoding"] = "utf8"
+
+    res = subprocess.run(cmd, **kwargs)
+
+    if raw:
+        return res.stdout
+
     return res.stdout.removesuffix("\n")
 
 

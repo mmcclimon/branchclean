@@ -45,7 +45,7 @@ class Cleaner:
             self.do_initial_fetch()
         self.read_refs()
         self.compute_main_patch_ids()
-        self.process_refs()
+        self.process_refs(skip_fetch)
         if self.get_confirmation(really):
             self.make_changes()
 
@@ -178,7 +178,7 @@ class Cleaner:
             for commit, patch_id in commit_patch_ids.items():
                 f.write(f"{commit} {patch_id}\n")
 
-    def process_refs(self):
+    def process_refs(self, skip_fetch=False):
         for branch in self.branches:
             patch_id = branch.patch_id
 
@@ -190,7 +190,7 @@ class Cleaner:
             remote = self.remote_refs.get(branch.name)
 
             if branch.upstream and not branch.upstream.is_personal:
-                self._process_external(branch, branch.upstream)
+                self._process_external(branch, branch.upstream, skip_fetch)
             elif remote is None:
                 self._process_missing(branch)
             elif remote.sha == branch.sha:
@@ -200,8 +200,14 @@ class Cleaner:
             else:
                 assert False, "unreachable"
 
-    def _process_external(self, branch: Branch, tracking: TrackingBranch):
-        util.fetch(tracking.remote)
+    def _process_external(
+        self,
+        branch: Branch,
+        tracking: TrackingBranch,
+        skip_fetch=False,
+    ):
+        if not skip_fetch:
+            util.fetch(tracking.remote)
 
         if not util.ref_exists(tracking.refname):
             log.update(f"{branch.name}; {tracking} is gone, will delete local")

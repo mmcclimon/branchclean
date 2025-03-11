@@ -39,13 +39,13 @@ class Cleaner:
         self.to_update: dict[str, util.Sha] = {}
         self.to_push: list[Branch] = []
 
-    def run(self, really=False, skip_fetch=False):
+    def run(self, really=False, skip_fetch=False, skip_push=False):
         self.assert_local_ok()
         if not skip_fetch:
             self.do_initial_fetch()
         self.read_refs()
         self.compute_main_patch_ids()
-        self.process_refs(skip_fetch)
+        self.process_refs(skip_fetch, skip_push)
         if self.get_confirmation(really):
             self.make_changes()
 
@@ -178,7 +178,7 @@ class Cleaner:
             for commit, patch_id in commit_patch_ids.items():
                 f.write(f"{commit} {patch_id}\n")
 
-    def process_refs(self, skip_fetch=False):
+    def process_refs(self, skip_fetch=False, skip_push=False):
         for branch in self.branches:
             patch_id = branch.patch_id
 
@@ -196,7 +196,7 @@ class Cleaner:
             elif remote.sha == branch.sha:
                 self._process_matched(branch)
             elif remote.sha != branch.sha:
-                self._process_mismatched(branch, remote)
+                self._process_mismatched(branch, remote, skip_push)
             else:
                 assert False, "unreachable"
 
@@ -231,13 +231,17 @@ class Cleaner:
     def _process_matched(self, branch):
         log.ok(f"{branch.name} is already up to date")
 
-    def _process_mismatched(self, branch: Branch, remote: Branch):
+    def _process_mismatched(self, branch: Branch, remote: Branch, skip_push: bool):
         local_time = run_git("show", "--no-patch", "--format=%ct", branch.sha)
         remote_time = run_git("show", "--no-patch", "--format=%ct", remote.sha)
 
         if local_time > remote_time:
-            log.update(f"{branch.name} is newer locally; will push")
-            self.to_push.append(branch)
+            info = f"{branch.name} is newer locally"
+            if skip_push:
+                log.warn(f"{info}; not pushing because --no-push was specified")
+            else:
+                log.update(f"{info}; will push")
+                self.to_push.append(branch)
         else:
             log.update(f"{branch.name} is newer on remote; will update local")
             self.to_update[branch.name] = remote.sha

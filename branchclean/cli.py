@@ -50,6 +50,12 @@ ap.add_argument(
 )
 
 ap.add_argument(
+    "--no-push",
+    help="only update local branches, do not push to remotes",
+    action="store_true",
+)
+
+ap.add_argument(
     "--remote",
     help="tidy personal remote, not local branches",
     action="store_true",
@@ -86,7 +92,7 @@ def run():
     )
 
     try:
-        cleaner.run(really=args.really, skip_fetch=args.no_fetch)
+        cleaner.run(really=args.really, skip_fetch=args.no_fetch, skip_push=args.no_push)
     except KeyboardInterrupt:
         print("...k bye!")
         sys.exit(130)
